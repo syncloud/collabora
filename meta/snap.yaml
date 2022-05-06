@@ -1,0 +1,30 @@
+apps:
+  nginx:
+    command: bin/service.nginx.sh start
+    user: collabora
+    daemon: simple
+    plugs:
+    - network
+    - network-bind
+    restart-condition: always
+    stop-command: bin/service.nginx.sh stop
+  
+  server:
+    command: bin/service.server.sh start
+    daemon: simple
+    plugs:
+    - network
+    - network-bind
+    restart-condition: always
+    
+  storage-change:
+    command: hooks/storage-change
+
+  access-change:
+    command: hooks/access-change
+
+confinement: strict
+description: Collabora Office Online
+grade: stable
+name: collabora
+summary: Collabora
