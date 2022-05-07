@@ -84,7 +84,6 @@ class Installer:
 
     def prepare_storage(self):
         app_storage_dir = storage.init_storage(APP_NAME, USER_NAME)
-        check_output('chown {0}. {1}'.format(USER_NAME, ocdata), shell=True)
         check_output('chmod 770 {0}'.format(app_storage_dir), shell=True)
 
     def on_domain_change(self):
@@ -95,4 +94,3 @@ class Installer:
             {'domain': app_domain}
         )
         service.restart(SYSTEMD_COLLABORA)
-
