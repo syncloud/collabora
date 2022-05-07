@@ -18,7 +18,7 @@ local build(arch, test_ui) = [{
             ]
         },
        {
-            name: "build",
+            name: "build app",
             image: "debian:buster-slim",
             commands: [
                 "./app/build.sh"
