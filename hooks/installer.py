@@ -37,10 +37,7 @@ class Installer:
         templates_path = join(self.app_dir, 'config')
 
         variables = {
-            'app_dir': self.app_dir,
-            'common_dir': self.common_dir,
-            'data_dir': self.data_dir,
-            'config_dir': self.config_dir,
+            'snap_data': self.data_dir,
             'domain': urls.get_app_domain_name(APP_NAME)
         }
         gen.generate_files(templates_path, self.config_dir, variables)
@@ -98,3 +95,4 @@ class Installer:
             {'domain': app_domain}
         )
         service.restart(SYSTEMD_COLLABORA)
+
