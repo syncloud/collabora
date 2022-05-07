@@ -29,6 +29,12 @@ class Installer:
         self.data_dir = join('/var/snap', APP_NAME, 'current')
         self.config_dir = join(self.data_dir, 'config')
 
+    def config(self):
+        return {
+            'snap_data': self.data_dir,
+            'domain': urls.get_app_domain_name(APP_NAME)
+        }
+
     def install_config(self):
 
         home_folder = join('/home', USER_NAME)
@@ -36,11 +42,7 @@ class Installer:
         storage.init_storage(APP_NAME, USER_NAME)
         templates_path = join(self.app_dir, 'config')
 
-        variables = {
-            'snap_data': self.data_dir,
-            'domain': urls.get_app_domain_name(APP_NAME)
-        }
-        gen.generate_files(templates_path, self.config_dir, variables)
+        gen.generate_files(templates_path, self.config_dir, self.config())
 
         fs.makepath(join(self.common_dir, 'log'))
         fs.makepath(join(self.common_dir, 'nginx'))
@@ -87,10 +89,6 @@ class Installer:
         check_output('chmod 770 {0}'.format(app_storage_dir), shell=True)
 
     def on_domain_change(self):
-        app_domain = urls.get_app_domain_name(APP_NAME)
-        gen.generate_file_jinja(
-            join(self.app_dir, 'config', 'coolwsd.xml'),
-            join(self.data_dir, 'config', 'coolwsd.xml'),
-            {'domain': app_domain}
-        )
+        file = join('config', 'coolwsd.xml')
+        gen.generate_file_jinja(join(self.app_dir, file), join(self.data_dir, file), self.config())
         service.restart(SYSTEMD_COLLABORA)
