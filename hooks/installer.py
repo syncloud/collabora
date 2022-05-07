@@ -89,8 +89,8 @@ class Installer:
     def on_domain_change(self):
         app_domain = urls.get_app_domain_name(APP_NAME)
         gen.generate_file_jinja(
-            join(self.app_dir, 'config', 'code', 'coolwsd.xml'),
-            join(self.data_dir, 'config', 'code', 'coolwsd.xml'),
+            join(self.app_dir, 'config', 'coolwsd.xml'),
+            join(self.data_dir, 'config', 'coolwsd.xml'),
             {'domain': app_domain}
         )
         service.restart(SYSTEMD_COLLABORA)
