@@ -29,8 +29,9 @@ def test_start(module_setup, app, domain, device_host):
     add_host_alias(app, device_host, domain)
 
 
-def test_login(selenium):
+def test_login(selenium, app_domain):
     selenium.open_app()
+    selenium.driver.get("https://{0}/browser".format(app_domain))
     selenium.screenshot('main')
 
 
