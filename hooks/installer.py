@@ -57,8 +57,8 @@ class Installer:
         )
         check_output('cp -r {0}/app/usr/share/coolwsd/browser {1}'
                      .format(self.app_dir, cool_fileserver_path), shell=True)
-        self.fix_permissions()
-
+        check_output('chown -R {0}.{0} {1}'.format(USER_NAME, self.common_dir), shell=True)
+        check_output('chown -R {0}.{0} {1}'.format(USER_NAME, self.data_dir), shell=True)
 
     def install(self):
         self.install_config()
@@ -72,14 +72,6 @@ class Installer:
     def configure(self):
         self.prepare_storage()
         app_storage_dir = storage.init_storage(APP_NAME, USER_NAME)
-
-        self.on_domain_change()
-
-        self.fix_permissions()
-
-    def fix_permissions(self):
-        check_output('chown -R {0}.{0} {1}'.format(USER_NAME, self.common_dir), shell=True)
-        check_output('chown -R {0}.{0} {1}'.format(USER_NAME, self.data_dir), shell=True)
 
     def on_disk_change(self):
         self.prepare_storage()
