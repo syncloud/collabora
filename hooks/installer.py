@@ -16,7 +16,7 @@ APP_NAME = 'collabora'
 USER_NAME = APP_NAME
 
 SYSTEMD_NGINX = '{0}.nginx'.format(APP_NAME)
-SYSTEMD_COLLABORA = '{0}.app'.format(APP_NAME)
+SYSTEMD_COLLABORA = '{0}.server'.format(APP_NAME)
 
 class Installer:
     def __init__(self):
