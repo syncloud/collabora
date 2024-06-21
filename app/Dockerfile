@@ -1,1 +1,2 @@
-FROM collabora/code:23.05.5.3.1
+FROM collabora/code:24.04.4.2.1
+
