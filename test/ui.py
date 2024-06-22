@@ -34,7 +34,3 @@ def test_login(selenium, app_domain):
     # selenium.driver.get("https://{0}/browser".format(app_domain))
     selenium.screenshot('main')
 
-
-def test_teardown(driver):
-    driver.quit()
-
