@@ -55,13 +55,20 @@ local build(arch, test_ui, dind) = [{
                 }
             ]
         },
-    {
-        name: "download",
-        image: 'debian:' + debian,
-        commands: [
-            "./download.sh "
-        ]
-    },
+   {
+               name: 'nginx',
+               image: 'nginx:' + nginx,
+               commands: [
+                 './nginx/build.sh',
+               ],
+             },
+             {
+               name: 'nginx test',
+               image: 'syncloud/platform-' + distro_default + '-' + arch + ':' + platform,
+               commands: [
+                 './nginx/test.sh',
+               ],
+             },
         {
             name: "build",
             image: 'debian:' + debian,
