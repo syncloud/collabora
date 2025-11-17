@@ -77,3 +77,9 @@ def test_reinstall(app_archive_path, device_host, device_password):
 def test_upgrade(app_archive_path, device_host, device_password):
     local_install(device_host, device_password, app_archive_path)
 
+
+@pytest.mark.flaky(retries=10, delay=5)
+def test_capabilities(app_domain):
+    response = requests.get('https://{0}/hosting/capabilities'.format(app_domain), verify=False)
+    assert response.status_code == 200, response.text
+    assert "productVersion" in response.text

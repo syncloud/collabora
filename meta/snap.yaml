@@ -6,6 +6,7 @@ apps:
     plugs:
     - network
     - network-bind
+    start-timeout: 600s
     restart-condition: always
     
   server:
@@ -14,6 +15,7 @@ apps:
     plugs:
     - network
     - network-bind
+    start-timeout: 600s
     restart-condition: always
     
   storage-change:
