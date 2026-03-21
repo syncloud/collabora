@@ -1,3 +1,7 @@
+# CI checks
+
+amd64 is the primary pipeline — always check all steps on it (including test-ui and test-upgrade). arm64 runs a subset without UI tests.
+
 # Debugging CI failures
 
 When a CI build fails, always start by identifying the failing step:
