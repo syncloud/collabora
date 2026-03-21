@@ -3,6 +3,7 @@ package installer
 import (
 	"fmt"
 	cp "github.com/otiai10/copy"
+	"github.com/syncloud/golib/config"
 	"github.com/syncloud/golib/linux"
 	"github.com/syncloud/golib/platform"
 	"go.uber.org/zap"
@@ -10,6 +11,11 @@ import (
 	"os/exec"
 	"path"
 )
+
+type Variables struct {
+	SnapData string
+	Domain   string
+}
 
 const (
 	App = "collabora"
@@ -159,14 +165,23 @@ func (i *Installer) UpdateVersion() error {
 }
 
 func (i *Installer) UpdateConfigs() error {
-	command := exec.Command(
-		"cp", "-r",
+	domain, err := i.platformClient.GetAppDomainName(App)
+	if err != nil {
+		return err
+	}
+
+	variables := Variables{
+		SnapData: i.dataDir,
+		Domain:   domain,
+	}
+
+	err = config.Generate(
 		path.Join(i.appDir, "config"),
 		path.Join(i.dataDir, "config"),
+		variables,
 	)
-	output, err := command.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%w: %s", err, string(output))
+		return err
 	}
 	return nil
 }

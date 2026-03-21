@@ -9,12 +9,12 @@
 
     <allowed_languages desc="List of supported languages of Writing Aids (spell checker, grammar checker, thesaurus, hyphenation) on this instance. Allowing too many has negative effect on startup performance." default="de_DE en_GB en_US es_ES fr_FR it nl pt_BR pt_PT ru">de_DE en_GB en_US es_ES fr_FR it nl pt_BR pt_PT ru</allowed_languages>
 
-    <sys_template_path desc="Path to a template tree with shared libraries etc to be used as source for chroot jails for child processes." type="path" relative="false" default="systemplate">{{ snap_data }}/systemplate</sys_template_path>
-    <child_root_path desc="Path to the directory under which the chroot jails for the child processes will be created. Should be on the same file system as systemplate and lotemplate. Must be an empty directory." type="path" relative="true" default="jails">{{ snap_data }}/child-roots</child_root_path>
+    <sys_template_path desc="Path to a template tree with shared libraries etc to be used as source for chroot jails for child processes." type="path" relative="false" default="systemplate">{{ .SnapData }}/systemplate</sys_template_path>
+    <child_root_path desc="Path to the directory under which the chroot jails for the child processes will be created. Should be on the same file system as systemplate and lotemplate. Must be an empty directory." type="path" relative="true" default="jails">{{ .SnapData }}/child-roots</child_root_path>
     <mount_jail_tree desc="Controls whether the systemplate and lotemplate contents are mounted or not, which is much faster than the default of linking/copying each file." type="bool" default="true">false</mount_jail_tree>
 
-    <server_name desc="External hostname:port of the server running coolwsd. If empty, it's derived from the request (please set it if this doesn't work). May be specified when behind a reverse-proxy or when the hostname is not reachable directly." type="string" default="{{ domain }}"></server_name>
-    <file_server_root_path desc="Path to the directory that should be considered root for the file server. This should be the directory containing cool." type="path" relative="true" default="browser/../">{{ snap_data }}/coolwsd</file_server_root_path>
+    <server_name desc="External hostname:port of the server running coolwsd. If empty, it's derived from the request (please set it if this doesn't work). May be specified when behind a reverse-proxy or when the hostname is not reachable directly." type="string" default="{{ .Domain }}"></server_name>
+    <file_server_root_path desc="Path to the directory that should be considered root for the file server. This should be the directory containing cool." type="path" relative="true" default="browser/../">{{ .SnapData }}/coolwsd</file_server_root_path>
     <hexify_embedded_urls desc="Enable to protect encoded URLs from getting decoded by intermediate hops. Particularly useful on Azure deployments" type="bool" default="false"></hexify_embedded_urls>
     <experimental_features desc="Enable/Disable experimental features" type="bool" default="false">false</experimental_features>
 
