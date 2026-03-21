@@ -15,10 +15,9 @@ mkdir -p ${BUILD_DIR}
 cd ${BUILD_DIR}
 docker export collabora -o app.tar
 tar xf app.tar
-ls -la ${BUILD_DIR}/usr/bin/cool*
 cp ${DIR}/collabora.sh ${BUILD_DIR}
-cp ${BUILD_DIR}/usr/bin/coolforkit ${BUILD_DIR}/usr/bin/coolforkit.bin
-cp ${DIR}/coolforkit ${BUILD_DIR}/usr/bin/coolforkit
+cp ${BUILD_DIR}/usr/bin/coolforkit-ns ${BUILD_DIR}/usr/bin/coolforkit-ns.bin
+cp ${DIR}/coolforkit-ns ${BUILD_DIR}/usr/bin/coolforkit-ns
 rm -rf app.tar
 rm -rf ${BUILD_DIR}/usr/src
 
