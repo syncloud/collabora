@@ -19,10 +19,10 @@ apps:
     restart-condition: always
     
   storage-change:
-    command: hooks/storage-change
+    command: bin/cli storage-change
 
   access-change:
-    command: hooks/access-change
+    command: bin/cli access-change
 
 confinement: strict
 description: Collabora Office Online
