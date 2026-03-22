@@ -7,4 +7,3 @@ BUILD_DIR=${DIR}/build/snap
 
 cp -r bin ${BUILD_DIR}
 cp -r config ${BUILD_DIR}
-cp -r hooks ${BUILD_DIR}

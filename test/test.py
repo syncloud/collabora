@@ -1,14 +1,12 @@
 import os
 import pytest
 import requests
-import shutil
 from os.path import join
-from requests.auth import HTTPBasicAuth
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from subprocess import check_output
 from syncloudlib.integration.hosts import add_host_alias
-from syncloudlib.integration.installer import local_install, wait_for_installer
-from syncloudlib.integration.loop import loop_device_add, loop_device_cleanup
+from syncloudlib.integration.installer import local_install
+from retrying import retry
 
 TMP_DIR = '/tmp/syncloud'
 
@@ -48,9 +46,14 @@ def test_start(module_setup, device, device_host, app, domain):
     device.run_ssh('mkdir {0}'.format(TMP_DIR))
 
 
-def test_activate_device(device):
+@retry(stop_max_attempt_number=10, wait_fixed=5000)
+def activate(device):
     response = device.activate_custom()
     assert response.status_code == 200, response.text
+
+
+def test_activate_device(device):
+    activate(device)
 
 
 def test_install(app_archive_path, device_session, device_host, device_password):
