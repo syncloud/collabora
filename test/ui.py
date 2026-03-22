@@ -34,8 +34,5 @@ def test_login(selenium, device_user, device_password):
     password.send_keys(device_password)
     selenium.screenshot('login')
     selenium.find_by(By.ID, "sign-in-button").click()
-
-
-def test_admin(selenium, app_domain):
-    selenium.driver.get("https://{0}/browser/dist/admin/admin.html".format(app_domain))
+    selenium.find_by(By.ID, "active_users_count")
     selenium.screenshot('admin')
