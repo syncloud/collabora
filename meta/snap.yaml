@@ -25,7 +25,7 @@ apps:
     command: bin/cli access-change
 
 confinement: strict
-description: Collabora Office Online
+description: Collabora Online Development Edition
 grade: stable
 name: collabora
-summary: Collabora
+summary: Collabora Online DE
