@@ -13,9 +13,9 @@ import (
 )
 
 type Variables struct {
-	SnapData string
-	Domain   string
-	AuthUrl  string
+	SnapData        string
+	Domain          string
+	AuthLocalSocket string
 }
 
 const (
@@ -171,15 +171,10 @@ func (i *Installer) UpdateConfigs() error {
 		return err
 	}
 
-	authUrl, err := i.platformClient.GetAppUrl("auth")
-	if err != nil {
-		return err
-	}
-
 	variables := Variables{
-		SnapData: i.dataDir,
-		Domain:   domain,
-		AuthUrl:  authUrl,
+		SnapData:        i.dataDir,
+		Domain:          domain,
+		AuthLocalSocket: i.platformClient.GetAuthLocalSocket(),
 	}
 
 	err = config.Generate(
