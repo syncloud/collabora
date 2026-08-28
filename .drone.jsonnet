@@ -1,20 +1,20 @@
 local name = 'collabora';
-local browser = 'firefox';
+local code = '25.04.9.4.1';
 local go = '1.25';
 local nginx = '1.29.3-alpine3.22';
 local debian = 'bookworm-slim';
-local platforms = {
-  bookworm: '26.03',
-  buster: '25.02',
-};
-local selenium = '4.35.0-20250828';
+local platform = '26.08.01';
+local playwright = 'mcr.microsoft.com/playwright:v1.59.1-jammy';
 local store_publisher = 'stable-346';
 local python = '3.12-slim-bookworm';
 local distro_default = 'bookworm';
 local distros = ['bookworm', 'buster'];
 
+local platform_image(distro) =
+  'syncloud/platform-' + distro + ':' + platform;
 
-local build(arch, test_ui, dind) = [{
+
+local build(arch, test_ui) = [{
   kind: 'pipeline',
   type: 'docker',
   name: arch,
@@ -24,23 +24,11 @@ local build(arch, test_ui, dind) = [{
   },
   steps: [
     {
-      name: 'version',
-      image: 'debian:' + debian,
-      commands: [
-        'echo $DRONE_BUILD_NUMBER > version',
-      ],
-    },
-    {
       name: 'build app',
-      image: 'docker:' + dind,
+      image: 'collabora/code:' + code,
+      user: 'root',
       commands: [
         './app/build.sh',
-      ],
-      volumes: [
-        {
-          name: 'dockersock',
-          path: '/var/run',
-        },
       ],
     },
     {
@@ -52,7 +40,7 @@ local build(arch, test_ui, dind) = [{
     },
     {
       name: 'nginx test',
-      image: 'syncloud/platform-' + distro_default + '-' + arch + ':' + platforms[distro_default],
+      image: platform_image(distro_default),
       commands: [
         './nginx/test.sh',
       ],
@@ -80,8 +68,7 @@ local build(arch, test_ui, dind) = [{
       name: 'package',
       image: 'debian:' + debian,
       commands: [
-        'VERSION=$(cat version)',
-        './package.sh ' + name + ' $VERSION ',
+        './package.sh ' + name + ' $DRONE_BUILD_NUMBER',
       ],
     },
   ] + [
@@ -97,57 +84,18 @@ local build(arch, test_ui, dind) = [{
     for distro in distros
   ] + (if test_ui then [
     {
-      name: 'selenium',
-      image: 'selenium/standalone-' + browser + ':' + selenium,
-      detach: true,
-      environment: {
-        SE_NODE_SESSION_TIMEOUT: '999999',
-        START_XVFB: 'true',
-      },
-      volumes: [{
-        name: 'shm',
-        path: '/dev/shm',
-      }],
+      name: 'e2e',
+      image: playwright,
       commands: [
-        'cat /etc/hosts',
-        'DOMAIN="' + distro_default + '.com"',
-        'APP_DOMAIN="' + name + '.' + distro_default + '.com"',
-        'getent hosts $APP_DOMAIN | sed "s/$APP_DOMAIN/auth.$DOMAIN/g" | sudo tee -a /etc/hosts',
-        'cat /etc/hosts',
-        '/opt/bin/entry_point.sh',
+        './test/e2e/run.sh e2e specs/01-login.spec.ts',
       ],
     },
     {
-      name: 'selenium-video',
-      image: 'selenium/video:ffmpeg-8.0-20251212',
-      detach: true,
-      environment: {
-        DISPLAY_CONTAINER_NAME: 'selenium',
-        FILE_NAME: 'video.mkv',
-      },
-      volumes: [
-        {
-          name: 'shm',
-          path: '/dev/shm',
-        },
-        {
-          name: 'videos',
-          path: '/videos',
-        },
-      ],
-    },
-    {
-      name: 'test-ui',
-      image: 'python:' + python,
+      name: 'e2e-mobile',
+      image: playwright,
       commands: [
-        'cd test',
-        './deps.sh',
-        'py.test -x -s ui.py --distro=' + distro_default + ' --ver=$DRONE_BUILD_NUMBER --app=' + name + ' --browser=' + browser,
+        './test/e2e/run.sh e2e-mobile specs/01-login.spec.ts mobile',
       ],
-      volumes: [{
-        name: 'videos',
-        path: '/videos',
-      }],
     },
     {
       name: 'test-upgrade',
@@ -155,13 +103,9 @@ local build(arch, test_ui, dind) = [{
       commands: [
         'cd test',
         './deps.sh',
-        'py.test -x -s upgrade.py --distro=' + distro_default + ' --ver=$DRONE_BUILD_NUMBER --app=' + name + ' --browser=' + browser,
+        'py.test -x -s upgrade.py --distro=' + distro_default + ' --ver=$DRONE_BUILD_NUMBER --app=' + name,
       ],
       privileged: true,
-      volumes: [{
-        name: 'videos',
-        path: '/videos',
-      }],
     },
   ] else []) + [
     {
@@ -200,28 +144,14 @@ local build(arch, test_ui, dind) = [{
     },
   ],
   trigger: {
-    event: [
-      'push',
-      'pull_request',
-    ],
+    event: ['push'],
   },
   services: [
     {
-      name: 'docker',
-      image: 'docker:' + dind,
-      privileged: true,
-      volumes: [
-        {
-          name: 'dockersock',
-          path: '/var/run',
-        },
-      ],
-    },
-  ] + [
-    {
       name: name + '.' + distro + '.com',
-      image: 'syncloud/platform-' + distro + '-' + arch + ':' + platforms[distro],
+      image: platform_image(distro),
       privileged: true,
+      entrypoint: ['/bin/sh', '-c', "mkdir -p /etc/systemd/system/snapd.service.d && printf '[Service]\\nExecStartPost=/bin/sh -c \"/usr/bin/snap set system refresh.hold=2099-01-01T00:00:00Z\"\\n' > /etc/systemd/system/snapd.service.d/disable-refresh.conf && exec /sbin/init"],
       volumes: [
         {
           name: 'dbus',
@@ -248,20 +178,8 @@ local build(arch, test_ui, dind) = [{
         path: '/dev',
       },
     },
-    {
-      name: 'shm',
-      temp: {},
-    },
-    {
-      name: 'dockersock',
-      temp: {},
-    },
-    {
-      name: 'videos',
-      temp: {},
-    },
   ],
 }];
 
-build('amd64', true, '20.10.21-dind') +
-build('arm64', false, '20.10.21-dind')
+build('amd64', true) +
+build('arm64', false)

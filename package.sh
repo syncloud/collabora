@@ -14,13 +14,15 @@ ARCH=$(dpkg --print-architecture)
 
 SNAP_DIR=${DIR}/build/snap
 
+echo ${VERSION} > ${DIR}/version
+
 apt update
 apt -y install squashfs-tools
 
 rm -rf ${DIR}/*.snap
 cp -r ${DIR}/bin ${SNAP_DIR}
 cp -r ${DIR}/config ${SNAP_DIR}
-cp ${DIR}/meta/snap.yaml ${SNAP_DIR}/meta
+cp -r ${DIR}/meta/. ${SNAP_DIR}/meta
 
 echo "version: $VERSION" >> ${SNAP_DIR}/meta/snap.yaml
 echo "architectures:" >> ${SNAP_DIR}/meta/snap.yaml
