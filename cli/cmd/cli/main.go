@@ -16,21 +16,27 @@ func main() {
 		SilenceUsage: true,
 	}
 
-	cmd.AddCommand(&cobra.Command{
-		Use: "storage-change",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			logger.Info("storage-change")
-			return installer.New(logger).StorageChange()
-		},
-	})
+	commands := []struct {
+		use string
+		run func(*installer.Installer) error
+	}{
+		{"storage-change", func(i *installer.Installer) error { return i.StorageChange() }},
+		{"access-change", func(i *installer.Installer) error { return i.AccessChange() }},
+		{"backup-pre-stop", func(i *installer.Installer) error { return i.BackupPreStop() }},
+		{"restore-pre-start", func(i *installer.Installer) error { return i.RestorePreStart() }},
+		{"restore-post-start", func(i *installer.Installer) error { return i.RestorePostStart() }},
+	}
 
-	cmd.AddCommand(&cobra.Command{
-		Use: "access-change",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			logger.Info("access-change")
-			return installer.New(logger).AccessChange()
-		},
-	})
+	for _, command := range commands {
+		use, run := command.use, command.run
+		cmd.AddCommand(&cobra.Command{
+			Use: use,
+			RunE: func(cmd *cobra.Command, args []string) error {
+				logger.Info(use)
+				return run(installer.New(logger))
+			},
+		})
+	}
 
 	err := cmd.Execute()
 	if err != nil {

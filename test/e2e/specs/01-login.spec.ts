@@ -1,17 +1,17 @@
 import { test } from '@playwright/test'
 import { fillCredentials, signIn } from '../helpers/auth'
 import { shoot } from '../helpers/screenshot'
-import { required } from '../helpers/env'
 
-test('authelia login form is served', async ({ page }, testInfo) => {
-  await page.goto(`https://auth.${required('PLAYWRIGHT_FULL_DOMAIN')}`)
+test('syncloud sso login lands on the document list', async ({ page }, testInfo) => {
+  await page.goto('/')
   await fillCredentials(page)
-  await shoot(page, testInfo, 'auth')
+  await shoot(page, testInfo, 'login')
+  await page.locator('#sign-in-button').click()
+  await shoot(page, testInfo, 'files')
 })
 
-test('sign in through syncloud sso and reach the collabora admin console', async ({ page }, testInfo) => {
-  await page.goto('/')
-  await shoot(page, testInfo, 'login')
+test('the signed in user is shown', async ({ page }, testInfo) => {
   await signIn(page)
-  await shoot(page, testInfo, 'admin')
+  await page.getByTestId('current-user').waitFor()
+  await shoot(page, testInfo, 'session')
 })

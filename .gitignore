@@ -21,3 +21,6 @@ venv
 node_modules/
 artifact/
 __pycache__/
+*.snap
+version
+package.name
