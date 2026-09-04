@@ -1,31 +1,48 @@
+name: collabora
+summary: Collabora Online DE
+description: Collabora Online Development Edition
+grade: stable
+
 apps:
+
+  server:
+    command: bin/service.server.sh
+    user: collabora
+    daemon: simple
+    restart-condition: always
+    restart-delay: 10s
+    start-timeout: 600s
+
+  backend:
+    command: bin/service.backend.sh
+    user: collabora
+    daemon: simple
+    restart-condition: always
+    restart-delay: 10s
+    start-timeout: 600s
+
   nginx:
     command: bin/service.nginx.sh
     user: collabora
     daemon: simple
-    plugs:
-    - network
-    - network-bind
-    start-timeout: 600s
     restart-condition: always
-    
-  server:
-    command: bin/service.server.sh start
-    daemon: simple
-    plugs:
-    - network
-    - network-bind
+    restart-delay: 10s
     start-timeout: 600s
-    restart-condition: always
-    
+
+  cli:
+    command: bin/cli
+
   storage-change:
     command: bin/cli storage-change
 
   access-change:
     command: bin/cli access-change
 
-confinement: strict
-description: Collabora Online Development Edition
-grade: stable
-name: collabora
-summary: Collabora Online DE
+  backup-pre-stop:
+    command: bin/cli backup-pre-stop
+
+  restore-pre-start:
+    command: bin/cli restore-pre-start
+
+  restore-post-start:
+    command: bin/cli restore-post-start

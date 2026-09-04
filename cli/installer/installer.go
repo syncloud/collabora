@@ -1,6 +1,8 @@
 package installer
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	cp "github.com/otiai10/copy"
 	"github.com/syncloud/golib/config"
@@ -10,16 +12,18 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
+	"strings"
 )
 
-type Variables struct {
-	SnapData        string
-	Domain          string
-	AuthLocalSocket string
-}
-
 const (
-	App = "collabora"
+	App            = "collabora"
+	OIDCRedirect   = "/oidc/callback"
+	OIDCAuthMethod = "client_secret_basic"
+	WopiListen     = "127.0.0.1:9981"
+	WopiBaseURL    = "http://127.0.0.1:9981"
+	DiscoveryURL   = "http://127.0.0.1:9980/hosting/discovery"
+	AdminUser      = "admin"
 )
 
 type Installer struct {
@@ -54,6 +58,18 @@ func (i *Installer) Install() error {
 		return err
 	}
 
+	err = linux.CreateMissingDirs(
+		path.Join(i.dataDir, "nginx"),
+		path.Join(i.dataDir, "run"),
+		path.Join(i.dataDir, "secret"),
+		path.Join(i.dataDir, "coolwsd"),
+		path.Join(i.dataDir, "systemplate"),
+		path.Join(i.dataDir, "child-roots"),
+	)
+	if err != nil {
+		return err
+	}
+
 	err = i.StorageChange()
 	if err != nil {
 		return err
@@ -64,33 +80,12 @@ func (i *Installer) Install() error {
 		return err
 	}
 
-	err = linux.CreateMissingDirs(
-		path.Join(i.commonDir, "log"),
-		path.Join(i.commonDir, "nginx"),
-		path.Join(i.dataDir, "coolwsd"),
-		path.Join(i.dataDir, "systemplate"),
-		path.Join(i.dataDir, "child-roots"),
-	)
+	err = i.CopyFileserverAssets()
 	if err != nil {
 		return err
 	}
 
-	coolFileserverPath := path.Join(i.dataDir, "coolwsd")
-	err = cp.Copy(path.Join(i.dataDir, "config", "discovery.xml"), path.Join(coolFileserverPath, "discovery.xml"))
-	if err != nil {
-		return err
-	}
-
-	err = i.CopyBrowserAssets(coolFileserverPath)
-	if err != nil {
-		return err
-	}
-
-	err = i.FixPermissions()
-	if err != nil {
-		return err
-	}
-	return nil
+	return i.FixPermissions()
 }
 
 func (i *Installer) Configure() error {
@@ -106,23 +101,27 @@ func (i *Installer) PreRefresh() error {
 }
 
 func (i *Installer) PostRefresh() error {
-	err := i.UpdateConfigs()
+	err := linux.CreateMissingDirs(
+		path.Join(i.dataDir, "nginx"),
+		path.Join(i.dataDir, "run"),
+		path.Join(i.dataDir, "secret"),
+		path.Join(i.dataDir, "coolwsd"),
+	)
 	if err != nil {
 		return err
 	}
 
-	coolFileserverPath := path.Join(i.dataDir, "coolwsd")
-	err = os.MkdirAll(coolFileserverPath, 0755)
+	err = i.UpdateConfigs()
 	if err != nil {
 		return err
 	}
 
-	err = cp.Copy(path.Join(i.dataDir, "config", "discovery.xml"), path.Join(coolFileserverPath, "discovery.xml"))
+	err = i.CopyFileserverAssets()
 	if err != nil {
 		return err
 	}
 
-	err = i.CopyBrowserAssets(coolFileserverPath)
+	err = i.RemoveLegacyCommonDirs()
 	if err != nil {
 		return err
 	}
@@ -132,11 +131,7 @@ func (i *Installer) PostRefresh() error {
 		return err
 	}
 
-	err = i.FixPermissions()
-	if err != nil {
-		return err
-	}
-	return nil
+	return i.FixPermissions()
 }
 
 func (i *Installer) StorageChange() error {
@@ -145,16 +140,56 @@ func (i *Installer) StorageChange() error {
 		return err
 	}
 
-	err = linux.Chown(storageDir, App)
+	err = linux.CreateMissingDirs(path.Join(storageDir, "files"))
 	if err != nil {
 		return err
 	}
 
-	return nil
+	return linux.Chown(storageDir, App)
 }
 
 func (i *Installer) AccessChange() error {
-	return i.UpdateConfigs()
+	err := i.UpdateConfigs()
+	if err != nil {
+		return err
+	}
+	return i.RestartServices()
+}
+
+func (i *Installer) RestartServices() error {
+	for _, service := range []string{"server", "backend"} {
+		err := i.platformClient.RestartService(fmt.Sprintf("%s.%s", App, service))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (i *Installer) BackupPreStop() error {
+	return nil
+}
+
+func (i *Installer) RestorePreStart() error {
+	return nil
+}
+
+func (i *Installer) RestorePostStart() error {
+	err := i.StorageChange()
+	if err != nil {
+		return err
+	}
+	return i.FixPermissions()
+}
+
+func (i *Installer) RemoveLegacyCommonDirs() error {
+	for _, dir := range []string{"log", "nginx"} {
+		err := os.RemoveAll(path.Join(i.commonDir, dir))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (i *Installer) ClearVersion() error {
@@ -171,28 +206,156 @@ func (i *Installer) UpdateConfigs() error {
 		return err
 	}
 
-	variables := Variables{
-		SnapData:        i.dataDir,
-		Domain:          domain,
-		AuthLocalSocket: i.platformClient.GetAuthLocalSocket(),
+	deviceDomain, err := i.platformClient.GetDeviceDomainName()
+	if err != nil {
+		return err
 	}
 
-	err = config.Generate(
+	appUrl, err := i.platformClient.GetAppUrl(App)
+	if err != nil {
+		return err
+	}
+
+	authUrl, err := i.platformClient.GetAppUrl("auth")
+	if err != nil {
+		return err
+	}
+
+	storageDir, err := i.platformClient.InitStorage(App, App)
+	if err != nil {
+		return err
+	}
+
+	adminPassword, err := i.AdminPassword()
+	if err != nil {
+		return err
+	}
+
+	oidcSecret, err := i.OIDCClientSecret(strings.TrimRight(appUrl, "/"))
+	if err != nil {
+		return err
+	}
+
+	variables := Variables{
+		SnapData:            i.dataDir,
+		SnapApp:             i.appDir,
+		Domain:              domain,
+		DeviceDomainPattern: regexp.QuoteMeta(deviceDomain),
+		AuthLocalSocket:     i.platformClient.GetAuthLocalSocket(),
+		AuthSocketPath:      AuthSocketPath(i.platformClient.GetAuthLocalSocket()),
+		AdminUser:           AdminUser,
+		AdminPassword:       adminPassword,
+		AdminAuthorization:  basicAuthorization(AdminUser, adminPassword),
+		WopiHost:            WopiBaseURL,
+		FilesDir:            path.Join(storageDir, "files"),
+		AppUrl:              strings.TrimRight(appUrl, "/"),
+		AuthUrl:             strings.TrimRight(authUrl, "/"),
+		OIDCClientID:        App,
+		OIDCClientSecret:    oidcSecret,
+	}
+
+	return config.Generate(
 		path.Join(i.appDir, "config"),
 		path.Join(i.dataDir, "config"),
 		variables,
 	)
+}
+
+func (i *Installer) AdminPassword() (string, error) {
+	return i.secret("admin.password")
+}
+
+func (i *Installer) WopiSecret() (string, error) {
+	return i.secret("wopi.key")
+}
+
+func (i *Installer) OIDCClientSecret(appUrl string) (string, error) {
+	secretFile := path.Join(i.dataDir, "secret", "oidc.secret")
+	urlFile := path.Join(i.dataDir, "secret", "oidc.url")
+
+	secret := readSecret(secretFile)
+	if secret != "" && readSecret(urlFile) == appUrl {
+		return secret, nil
+	}
+
+	secret, err := i.platformClient.RegisterOIDCClient(
+		App,
+		[]string{OIDCRedirect},
+		true,
+		OIDCAuthMethod,
+	)
+	if err != nil {
+		return "", err
+	}
+	err = writeSecret(secretFile, secret)
+	if err != nil {
+		return "", err
+	}
+	err = writeSecret(urlFile, appUrl)
+	if err != nil {
+		return "", err
+	}
+	return secret, nil
+}
+
+func readSecret(file string) string {
+	content, err := os.ReadFile(file)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(content))
+}
+
+func (i *Installer) secret(name string) (string, error) {
+	file := path.Join(i.dataDir, "secret", name)
+	if existing := readSecret(file); existing != "" {
+		return existing, nil
+	}
+	buffer := make([]byte, 32)
+	if _, err := rand.Read(buffer); err != nil {
+		return "", err
+	}
+	secret := base64.RawURLEncoding.EncodeToString(buffer)
+	if err := writeSecret(file, secret); err != nil {
+		return "", err
+	}
+	return secret, nil
+}
+
+func writeSecret(file, secret string) error {
+	if err := os.MkdirAll(path.Dir(file), 0o750); err != nil {
+		return err
+	}
+	return os.WriteFile(file, []byte(secret), 0o640)
+}
+
+func AuthSocketPath(localSocket string) string {
+	return strings.TrimSuffix(strings.TrimPrefix(localSocket, "http://unix:"), ":")
+}
+
+func basicAuthorization(user, password string) string {
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+password))
+}
+
+func (i *Installer) CopyFileserverAssets() error {
+	fileserver := path.Join(i.dataDir, "coolwsd")
+	err := os.MkdirAll(fileserver, 0o755)
 	if err != nil {
 		return err
 	}
-	return nil
-}
 
-func (i *Installer) CopyBrowserAssets(coolFileserverPath string) error {
+	err = cp.Copy(
+		path.Join(i.dataDir, "config", "discovery.xml"),
+		path.Join(fileserver, "discovery.xml"),
+	)
+	if err != nil {
+		return err
+	}
+
 	command := exec.Command(
 		"cp", "-r",
 		path.Join(i.appDir, "app", "usr", "share", "coolwsd", "browser"),
-		coolFileserverPath,
+		fileserver,
 	)
 	output, err := command.CombinedOutput()
 	if err != nil {
@@ -206,9 +369,5 @@ func (i *Installer) FixPermissions() error {
 	if err != nil {
 		return err
 	}
-	err = linux.Chown(i.commonDir, App)
-	if err != nil {
-		return err
-	}
-	return nil
+	return linux.Chown(i.commonDir, App)
 }

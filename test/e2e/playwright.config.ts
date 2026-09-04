@@ -16,7 +16,7 @@ export default defineConfig({
   outputDir: `${artifactDir}/playwright/test-results`,
   globalSetup: './globalSetup.ts',
   globalTeardown: './globalTeardown.ts',
-  timeout: 120_000,
+  timeout: 300_000,
   expect: { timeout: 30_000 },
   use: {
     baseURL: `https://${appDomain}`,

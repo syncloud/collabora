@@ -1,6 +1,8 @@
 local name = 'collabora';
-local code = '25.04.9.4.1';
+local code = '26.04.3.2.1';
+local busybox = '1.37.0-musl';
 local go = '1.25';
+local node = '22.12.0-bookworm-slim';
 local nginx = '1.29.3-alpine3.22';
 local debian = 'bookworm-slim';
 local platform = '26.08.01';
@@ -24,12 +26,18 @@ local build(arch, test_ui) = [{
   },
   steps: [
     {
+      name: 'shell',
+      image: 'busybox:' + busybox,
+      commands: [
+        './app/shell.sh',
+      ],
+    },
+    {
       name: 'build app',
       image: 'collabora/code:' + code,
       user: 'root',
-      commands: [
-        './app/build.sh',
-      ],
+      entrypoint: ['/drone/src/build/bin/busybox', 'sh'],
+      command: ['/drone/src/app/build.sh'],
     },
     {
       name: 'nginx',
@@ -38,32 +46,40 @@ local build(arch, test_ui) = [{
         './nginx/build.sh',
       ],
     },
+  ] + [
     {
-      name: 'nginx test',
-      image: platform_image(distro_default),
+      name: 'nginx test ' + distro,
+      image: platform_image(distro),
       commands: [
         './nginx/test.sh',
       ],
-    },
+    }
+    for distro in distros
+  ] + [
     {
-      name: 'build',
-      image: 'debian:' + debian,
+      name: 'web',
+      image: 'node:' + node,
       commands: [
-        './build.sh',
+        './web/build.sh',
       ],
     },
     {
       name: 'cli',
       image: 'golang:' + go,
       commands: [
-        'cd cli',
-        'CGO_ENABLED=0 go build -o ../build/snap/meta/hooks/install ./cmd/install',
-        'CGO_ENABLED=0 go build -o ../build/snap/meta/hooks/configure ./cmd/configure',
-        'CGO_ENABLED=0 go build -o ../build/snap/meta/hooks/pre-refresh ./cmd/pre-refresh',
-        'CGO_ENABLED=0 go build -o ../build/snap/meta/hooks/post-refresh ./cmd/post-refresh',
-        'CGO_ENABLED=0 go build -o ../build/snap/bin/cli ./cmd/cli',
+        './cli/build.sh',
       ],
     },
+  ] + [
+    {
+      name: 'cli test ' + distro,
+      image: platform_image(distro),
+      commands: [
+        './cli/test.sh',
+      ],
+    }
+    for distro in distros
+  ] + [
     {
       name: 'package',
       image: 'debian:' + debian,
@@ -76,9 +92,7 @@ local build(arch, test_ui) = [{
       name: 'test ' + distro,
       image: 'python:' + python,
       commands: [
-        'cd test',
-        './deps.sh',
-        'py.test -x -s test.py --distro=' + distro + ' --ver=$DRONE_BUILD_NUMBER --app=' + name,
+        './ci/test.sh test.py ' + distro + ' ' + name + ' $DRONE_BUILD_NUMBER',
       ],
     }
     for distro in distros
@@ -87,25 +101,45 @@ local build(arch, test_ui) = [{
       name: 'e2e',
       image: playwright,
       commands: [
-        './test/e2e/run.sh e2e specs/01-login.spec.ts',
+        './test/e2e/run.sh e2e desktop specs/01-login.spec.ts specs/02-files.spec.ts specs/03-edit-docx.spec.ts specs/04-edit-xlsx.spec.ts specs/05-edit-pptx.spec.ts specs/06-roundtrip-docx.spec.ts specs/07-security.spec.ts',
       ],
     },
     {
       name: 'e2e-mobile',
       image: playwright,
       commands: [
-        './test/e2e/run.sh e2e-mobile specs/01-login.spec.ts mobile',
+        './test/e2e/run.sh e2e-mobile mobile specs/01-login.spec.ts specs/02-files.spec.ts',
+      ],
+    },
+    {
+      name: 'test-upgrade-prev',
+      image: 'python:' + python,
+      commands: [
+        './ci/test.sh upgrade-prev.py ' + distro_default + ' ' + name + ' $DRONE_BUILD_NUMBER',
+      ],
+      privileged: true,
+    },
+    {
+      name: 'e2e-before-upgrade',
+      image: playwright,
+      commands: [
+        './test/e2e/run.sh e2e-before-upgrade desktop specs/08-pre-upgrade.spec.ts',
       ],
     },
     {
       name: 'test-upgrade',
       image: 'python:' + python,
       commands: [
-        'cd test',
-        './deps.sh',
-        'py.test -x -s upgrade.py --distro=' + distro_default + ' --ver=$DRONE_BUILD_NUMBER --app=' + name,
+        './ci/test.sh upgrade.py ' + distro_default + ' ' + name + ' $DRONE_BUILD_NUMBER',
       ],
       privileged: true,
+    },
+    {
+      name: 'e2e-after-upgrade',
+      image: playwright,
+      commands: [
+        './test/e2e/run.sh e2e-after-upgrade desktop specs/09-post-upgrade.spec.ts',
+      ],
     },
   ] else []) + [
     {
