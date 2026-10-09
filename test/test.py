@@ -97,15 +97,15 @@ def test_oidc_registered_once(device):
 
 
 def test_backend_socket(device):
-    device.run_ssh('test -S /var/snap/collabora/current/run/backend.sock', retries=100)
+    device.run_ssh('test -S /var/snap/collabora/current/run/backend.sock', retries=8)
 
 
 def test_storage_dir(device):
-    device.run_ssh('test -d /data/collabora/files', retries=100)
+    device.run_ssh('test -d /data/collabora/files', retries=8)
 
 
 def test_admin_password_is_generated(device):
-    password = device.run_ssh('cat /var/snap/collabora/current/secret/admin.password', retries=100)
+    password = device.run_ssh('cat /var/snap/collabora/current/secret/admin.password', retries=8)
     assert password.strip() != 'admin', password
     assert len(password.strip()) > 20, password
 
@@ -118,7 +118,7 @@ def test_snap_common_holds_only_the_web_socket(device):
 
 def test_server_started(device):
     try:
-        device.run_ssh("sh -c 'ss -lnt | grep -q 127.0.0.1:9980'", retries=60)
+        device.run_ssh("sh -c 'ss -lnt | grep -q 127.0.0.1:9980'", retries=8)
     except Exception:
         logs = device.run_ssh('journalctl -u snap.collabora.server -n 300 --no-pager', throw=False)
         raise AssertionError('coolwsd never listened on 127.0.0.1:9980\n{0}'.format(logs))
@@ -126,8 +126,8 @@ def test_server_started(device):
 
 def test_coolwsd_trusts_apps_on_the_device_domain(device, domain):
     log = device.run_ssh(
-        "sh -c 'journalctl -u snap.collabora.server --no-pager | grep -E \"trusted WOPI host|parseAliases\"'",
-        retries=30)
+        "sh -c 'journalctl -u snap.collabora.server --no-pager | grep -e trusted.WOPI.host -e parseAliases'",
+        retries=5)
     escaped = domain.replace('.', chr(92) + '.')
     assert 'Adding trusted WOPI host: [.*{0}.{1}]'.format(chr(92), escaped) in log, log
     assert 'parseAliases: ignoring' not in log, log
