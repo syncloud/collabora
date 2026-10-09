@@ -125,12 +125,11 @@ def test_server_started(device):
 
 
 def test_coolwsd_trusts_apps_on_the_device_domain(device, domain):
-    log = device.run_ssh(
-        "sh -c 'journalctl -u snap.collabora.server --no-pager | grep -e trusted.WOPI.host -e parseAliases'",
-        retries=5)
-    escaped = domain.replace('.', chr(92) + '.')
-    assert 'Adding trusted WOPI host: [.*{0}.{1}]'.format(chr(92), escaped) in log, log
-    assert 'parseAliases: ignoring' not in log, log
+    journal = device.run_ssh('journalctl -u snap.collabora.server --no-pager', debug=False)
+    lines = [line for line in journal.splitlines() if 'WOPI host' in line or 'parseAliases' in line]
+    trusted = 'Adding trusted WOPI host: [.*\\.{0}]'.format(domain.replace('.', '\\.'))
+    assert any(trusted in line for line in lines), lines
+    assert not any('parseAliases: ignoring' in line for line in lines), lines
 
 
 def test_coolwsd_and_wopi_listen_on_loopback_ipv4_only(device):
