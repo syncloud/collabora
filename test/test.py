@@ -124,6 +124,15 @@ def test_server_started(device):
         raise AssertionError('coolwsd never listened on 127.0.0.1:9980\n{0}'.format(logs))
 
 
+def test_coolwsd_trusts_apps_on_the_device_domain(device, domain):
+    log = device.run_ssh(
+        "sh -c 'journalctl -u snap.collabora.server --no-pager | grep -E \"trusted WOPI host|parseAliases\"'",
+        retries=30)
+    escaped = domain.replace('.', chr(92) + '.')
+    assert 'Adding trusted WOPI host: [.*{0}.{1}]'.format(chr(92), escaped) in log, log
+    assert 'parseAliases: ignoring' not in log, log
+
+
 def test_coolwsd_and_wopi_listen_on_loopback_ipv4_only(device):
     listening = device.run_ssh("sh -c 'ss -lntp'")
     for port in ['9980', '9981']:

@@ -207,7 +207,7 @@
                     <host desc="hostname to allow or deny." allow="true">{{ .WopiHost }}</host>
             </group>
             <group>
-                    <host desc="hostname to allow or deny." allow="true">https://[^/]*{{ .DeviceDomainPattern }}</host>
+                    <host desc="hostname to allow or deny." allow="true">https://.*\.{{ .DeviceDomainPattern }}</host>
             </group>
             </alias_groups>
 
